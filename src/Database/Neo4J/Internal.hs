@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Database.Neo4J.Internal where
 
 import Control.Monad
