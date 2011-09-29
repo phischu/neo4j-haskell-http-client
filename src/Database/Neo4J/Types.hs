@@ -17,9 +17,18 @@ data Client = Client {
 } deriving (Show)
 
 type NodeID = Integer
-data Node = Node URI Properties deriving (Show)
+data Node = Node {
+    nodeURI :: URI,
+    nodeProperties :: Properties
+} deriving (Show)
 type Properties = [Pair]
-data Relationship = Relationship URI Node Node Type Properties deriving (Show)
+data Relationship = Relationship {
+    relationshipURI :: URI,
+    relationshipFrom :: Node,
+    relationshipTo :: Node,
+    relationshipType :: Type,
+    relationshipProperties :: Properties
+} deriving (Show)
 type Type = String
 
 instance ToJSON Node where
@@ -32,7 +41,7 @@ getNodeID :: Node -> NodeID
 getNodeID n@(Node uri _) = case splitOn "/" $ uriPath uri of
     [] -> error ("No node id for node " ++ (show n))
     xs -> read $ last xs
-    
+
 mkClient hostname portNumber = c { serviceRootURI = buildServiceRootURI c}
     where
         c = Client { host = hostname, port = portNumber, serviceRootURI = nullURI }

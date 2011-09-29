@@ -57,7 +57,7 @@ Library
                  bytestring-class, attoparsec, aeson, text, vector
   
   -- Modules not exported by this package.
-  -- Other-modules:       
+  Other-modules: Database.Neo4J.Internal, Database.Neo4J.Types
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         

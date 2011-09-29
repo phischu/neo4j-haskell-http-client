@@ -1,6 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Neo4J where
+module Database.Neo4J (
+    Client, mkClient, defaultClient, defaultPort,
+    nodeProperties, relationshipFrom, relationshipTo, relationshipType, relationshipProperties,
+    getNodeID, createNode, getNode, lookupNode, deleteNode, createRelationship,
+    deleteRelationship, getRelationships, incomingRelationships,
+    outgoingRelationships,allRelationships, typedRelationships
+    ) where
 
 import Control.Monad
 import Text.Printf
