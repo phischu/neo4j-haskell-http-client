@@ -46,15 +46,16 @@ getNodeID n@(Node uri _) = case splitOn "/" $ uriPath uri of
 mkClient hostname portNumber = c { serviceRootURI = buildServiceRootURI c}
     where
         c = Client { host = hostname, port = portNumber, serviceRootURI = nullURI }
+        buildServiceRootURI client = nullURI {
+            uriScheme = "http:",
+            uriAuthority = Just URIAuth {
+                uriUserInfo = "", uriRegName = host client, uriPort = ":" ++ (port client)
+            },
+            uriPath = "/db/data"
+        }
 
-buildServiceRootURI client = nullURI {
-    uriScheme = "http:",
-    uriAuthority = Just URIAuth {
-        uriUserInfo = "", uriRegName = host client, uriPort = ":" ++ (port client)
-    },
-    uriPath = "/db/data"
-}
-
+-- | Port 7474
 defaultPort = "7474"
 
+-- | Client over localhost on port 7474
 defaultClient = mkClient "localhost" defaultPort

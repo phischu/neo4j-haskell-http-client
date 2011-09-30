@@ -1,7 +1,27 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+{- |
+
+Client interface to Neo4J over REST. Here's a simple example (never mind the cavalier pattern matching):
+
+> import Database.Neo4J
+>
+> main = do
+>    let client = mkClient "192.168.56.101" defaultPort
+>    Right n <- createNode client [("name", "Neo"), ("quote", "Whoa.")]
+>    Right m <- createNode client [("name", "Trinity"), ("quote", "Dodge this.")]
+>    print n
+>    print m
+>    Right r <- createRelationship n m "LOVES"
+>    print r
+>    indexNodeByAllProperties n
+>    nodes <- findNodes client "name" "name" "Neo"
+>    print nodes
+-}
+
 module Database.Neo4J (
-    Client, mkClient, defaultClient, defaultPort,
+    Client, mkClient, defaultClient, defaultPort, Properties, Type, IndexName,
+    RelationshipRetrievalType (..), NodeID,
     nodeProperties, relationshipFrom, relationshipTo, relationshipType, relationshipProperties,
     getNodeID, createNode, getNode, lookupNode, deleteNode, createRelationship,
     deleteRelationship, getRelationships, incomingRelationships,
@@ -31,6 +51,8 @@ import Control.Applicative
 import Debug.Trace
 import Data.Maybe
 
+data RelationshipRetrievalType = All | Incoming | Outgoing | Typed String deriving (Eq)
+
 traceShow' x = traceShow x x
 
 nodeFromResponseBody body = do
@@ -44,6 +66,8 @@ buildPost uri content =
             [mkHeader HdrContentType "application/json", mkHeader HdrContentLength contentLength]
         contentLength = show $ BSC.length content
 
+-- | Create a node in Neo4J from a list of properties. The list may be empty.
+createNode :: Client -> Properties -> IO (Either String Node)
 createNode client properties = do
     let uri = serviceRootURI client `appendToPath` "node"
     let request = buildPost uri $ toStrictByteString $ encode $ object properties
@@ -54,6 +78,7 @@ createNode client properties = do
             _            -> Left "no url returned :o"
         Left err -> Left $ show err
 
+-- | Retrieve a node from its URI in Neo4J
 getNode uri = do
     let request = mkRequest GET uri
     result <- simpleHTTP request
@@ -65,11 +90,13 @@ getNode uri = do
             _ -> Left ("Node probably doesn't exist. Response code " ++ (show $ rspCode response))
         Left err -> Left $ show err
 
+-- | Retrieve a node from its ID number in Neo4J
 lookupNode client nodeID = 
     getNode $ serviceRootURI client `appendToPath` "node" `appendToPath` (show nodeID)
 
 deleteNode node@(Node uri _) = delete "Node" uri
 
+-- | Create a relationship between two nodes. You must specify a name/relationship type
 createRelationship n@(Node from _) m@(Node to _) name = do
     let uri = from `appendToPath` "relationships"
     let request = buildPost uri $ toStrictByteString $ encode $
@@ -85,8 +112,7 @@ createRelationship n@(Node from _) m@(Node to _) name = do
 
 deleteRelationship (Relationship uri _ _ _ _) = delete "Relationship" uri
 
-data RelationshipRetrievalType = All | Incoming | Outgoing | Typed String deriving (Eq)
-
+-- | Get all the relationships of a given type for a node.
 getRelationships rrType (Node nodeURI _) = do
     let uri = nodeURI `appendToPath` "relationships" `appendToPath` case rrType of
             All ->  "all"
@@ -138,6 +164,7 @@ createNodeIndex client indexName = do
             _         -> Left ("Index not created. Actual response: " ++ (show response))
         Left err -> Left (show err)
 
+-- | If a node has a specific property, add the property to the given index.
 indexNodeByProperty :: Client -> IndexName -> Text -> Node -> IO (Either String ())
 indexNodeByProperty client indexName propertyName node@(Node nodeURI properties) = 
     case lookup propertyName properties of
@@ -145,11 +172,13 @@ indexNodeByProperty client indexName propertyName node@(Node nodeURI properties)
         Nothing -> return $ Left $ printf "Property %s not in node %s"
                                         (Text.unpack propertyName) (show node)
 
+-- | Add all properties of a given node to indices, each of which is named the same as the property key
 indexNodeByAllProperties :: Client -> Node -> IO (Either String ())
 indexNodeByAllProperties client node@(Node _ properties) = let keys = map fst properties in do
     rs <- mapM (\key -> indexNodeByProperty client (Text.unpack key) key node) keys
     return $ sequence_ rs
 
+-- | Add a node to the given index, specifying your own key and value
 indexNode :: Client -> IndexName -> Node -> Text -> Value -> IO (Either String ())
 indexNode client indexName node@(Node nodeURI _) key value =
     case fromJSON' value of
@@ -168,7 +197,7 @@ indexNode client indexName node@(Node nodeURI _) key value =
         Nothing -> return $ Left $
             printf "The impossible happened: %s couldn't be converted from JSON" (show value)
 
--- | The new way (https://github.com/neo4j/community/issues/25;cid=1317413794432-668)
+-- | The new way in > 1.5 MILESTONE (https://github.com/neo4j/community/issues/25;cid=1317413794432-668)
 indexNodeNew :: (ToJSON a) => Client -> IndexName -> Node -> Text -> a -> IO (Either String ())
 indexNodeNew client indexName node@(Node nodeURI _) key value = do
     let uri = serviceRootURI client `appendToPath` "index" `appendToPath` "node" `appendToPath`
@@ -183,6 +212,7 @@ indexNodeNew client indexName node@(Node nodeURI _) key value = do
         _               -> Left $ printf "Node not indexed for some reason. Actual response: %s"
                                      (show result)
 
+-- | Search the given index for nodes whose keys have the specified value
 findNodes :: Client -> IndexName -> Text -> String -> IO (Either String [Node])
 findNodes client indexName key value = do
     let uri = serviceRootURI client `appendToPath` "index" `appendToPath` "node" `appendToPath`
