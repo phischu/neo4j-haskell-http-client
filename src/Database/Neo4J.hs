@@ -5,7 +5,8 @@ module Database.Neo4J (
     nodeProperties, relationshipFrom, relationshipTo, relationshipType, relationshipProperties,
     getNodeID, createNode, getNode, lookupNode, deleteNode, createRelationship,
     deleteRelationship, getRelationships, incomingRelationships,
-    outgoingRelationships,allRelationships, typedRelationships
+    outgoingRelationships,allRelationships, typedRelationships, indexNode, indexNodeByProperty,
+    indexNodeByAllProperties
     ) where
 
 import Control.Monad
@@ -20,6 +21,8 @@ import Database.Neo4J.Types
 import Database.Neo4J.Internal
 import Network.HTTP
 import Network.URI
+import Data.Text (Text)
+import qualified Data.Text as Text
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import Data.ByteString.Class
@@ -29,6 +32,10 @@ import Debug.Trace
 import Data.Maybe
 
 traceShow' x = traceShow x x
+
+nodeFromResponseBody body = do
+    selfURI <- pullReturnedSelfURI body
+    return $ Node selfURI (fromMaybe [] $ pullNodeProperties body)
 
 buildPost uri content =
         Request { rqURI = uri, rqMethod = POST, rqHeaders = headers, rqBody = content }
@@ -52,10 +59,9 @@ getNode uri = do
     result <- simpleHTTP request
     return $ case result of
         Right response -> case rspCode response of
-            (2, 0, 0) -> case pullReturnedSelfURI $ rspBody response of
-                Just selfURI -> Right $ Node selfURI
-                                    (fromMaybe [] $ pullNodeProperties $ rspBody response)
-                _            -> Left "no url returned :o"
+            (2, 0, 0) -> case nodeFromResponseBody $ rspBody response of
+                Just node -> Right node
+                _         -> Left "Node parse error"
             _ -> Left ("Node probably doesn't exist. Response code " ++ (show $ rspCode response))
         Left err -> Left $ show err
 
@@ -119,3 +125,90 @@ incomingRelationships = getRelationships Incoming
 outgoingRelationships = getRelationships Outgoing
 allRelationships = getRelationships All
 typedRelationships relType = getRelationships (Typed relType)
+
+createNodeIndex :: Client -> IndexName -> IO (Either String ())
+createNodeIndex client indexName = do
+    let uri = serviceRootURI client `appendToPath` "index" `appendToPath` "node"
+    let request = buildPost uri $ toStrictByteString $ encode $
+            object [("name", toJSON indexName)]
+    result <- simpleHTTP request
+    return $ case result of
+        Right response -> case rspCode response of
+            (2, 0, 1) -> Right ()
+            _         -> Left ("Index not created. Actual response: " ++ (show response))
+        Left err -> Left (show err)
+
+indexNodeByProperty :: Client -> IndexName -> Text -> Node -> IO (Either String ())
+indexNodeByProperty client indexName propertyName node@(Node nodeURI properties) = 
+    case lookup propertyName properties of
+        Just propertyValue -> indexNode client indexName node propertyName propertyValue
+        Nothing -> return $ Left $ printf "Property %s not in node %s"
+                                        (Text.unpack propertyName) (show node)
+
+indexNodeByAllProperties :: Client -> Node -> IO (Either String ())
+indexNodeByAllProperties client node@(Node _ properties) = let keys = map fst properties in do
+    rs <- mapM (\key -> indexNodeByProperty client (Text.unpack key) key node) keys
+    return $ sequence_ rs
+
+indexNode :: Client -> IndexName -> Node -> Text -> Value -> IO (Either String ())
+indexNode client indexName node@(Node nodeURI _) key value =
+    case fromJSON' value of
+        Just value' -> do
+            let uri = serviceRootURI client `appendToPath` "index" `appendToPath`
+                        "node" `appendToPath` indexName `appendToPath`
+                        (Text.unpack key) `appendToPath` value'
+            print uri
+            result <- simpleHTTP $ buildPost uri $ toStrictByteString $ encode $
+                toJSON $ show nodeURI
+            return $ case fmap rspCode result of
+                Right (2, 0, 1) -> Right ()
+                Left err        -> Left $ show err
+                _               -> Left $ printf "Node not indexed. Actual response: %s"
+                                            (show result)
+        Nothing -> return $ Left $
+            printf "The impossible happened: %s couldn't be converted from JSON" (show value)
+
+-- | The new way (https://github.com/neo4j/community/issues/25;cid=1317413794432-668)
+indexNodeNew :: (ToJSON a) => Client -> IndexName -> Node -> Text -> a -> IO (Either String ())
+indexNodeNew client indexName node@(Node nodeURI _) key value = do
+    let uri = serviceRootURI client `appendToPath` "index" `appendToPath` "node" `appendToPath`
+            indexName
+    print uri
+    result <- simpleHTTP $ buildPost uri $ toStrictByteString $ encode $
+        object [("uri", toJSON $ show nodeURI), ("key", toJSON key),
+                ("value", toJSON value)]
+    return $ case fmap rspCode result of
+        Right (2, 0, 1) -> Right ()
+        Left err        -> Left $ show err
+        _               -> Left $ printf "Node not indexed for some reason. Actual response: %s"
+                                     (show result)
+
+findNodes :: Client -> IndexName -> Text -> String -> IO (Either String [Node])
+findNodes client indexName key value = do
+    let uri = serviceRootURI client `appendToPath` "index" `appendToPath` "node" `appendToPath`
+                indexName `appendToPath` (Text.unpack key) `appendToPath` value
+    result <- simpleHTTP $ mkRequest GET uri
+    let node = case result of
+            Right response -> case rspCode response of
+                (2, 0, 0) -> let body = rspBody response in case Attoparsec.parse json body of
+                    Attoparsec.Done _ (Array v) -> Right $ forM (V.toList v) $ \n -> 
+                        case n of
+                            (Object o) -> do
+                                selfURIFromJSON <- fmap fromJSON $ Map.lookup "self" o
+                                selfURI <- case selfURIFromJSON of
+                                    (Success possibleURI) -> parseURI possibleURI
+                                    _                     -> Nothing
+                                nodePropertiesFromJSON <- fmap fromJSON $ Map.lookup "data" o
+                                nodeProperties <- case nodePropertiesFromJSON of
+                                    (Success (Object propMap)) -> Just $ Map.toList propMap
+                                    _                          -> Nothing
+                                return $ Node selfURI nodeProperties
+                            _ -> Nothing
+                    _ -> Left "findNode: Node parse error"
+                _ -> Left ("Node probably doesn't exist. Response code " ++
+                        (show $ rspCode response))
+            Left err -> Left $ show err
+    return $ case node of
+        Right (Just n) -> Right n
+        Right Nothing -> Left "Some weird node parse error deep in the code..."
+        Left err -> Left err

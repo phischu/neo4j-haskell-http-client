@@ -21,12 +21,12 @@ escape = escapeURIString isUnreserved
 appendToPath uri appendage = uri { uriPath = uriPath uri ++ appendage' }
     where appendage' = case appendage of
                         [] -> []
-                        ('/':_) -> appendage
-                        _ -> '/':appendage
+                        ('/':_) -> escape appendage
+                        _ -> '/':(escape appendage)
 
 lookupAllInJSONResponse jsonResponse keys = case Attoparsec.parse json jsonResponse of
     Attoparsec.Done _ (Object o) -> sequence $ map (\key -> fmap fromJSON $ Map.lookup key o) keys
-    x                            -> Nothing
+    _                            -> Nothing
 
 fromJSON' x = case fromJSON x of
     Error err -> Nothing

@@ -30,6 +30,7 @@ data Relationship = Relationship {
     relationshipProperties :: Properties
 } deriving (Show)
 type Type = String
+type IndexName = String
 
 instance ToJSON Node where
     toJSON (Node _ properties) = object properties
