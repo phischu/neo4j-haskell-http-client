@@ -20,13 +20,18 @@ Client interface to Neo4J over REST. Here's a simple example (never mind the cav
 -}
 
 module Database.Neo4J (
-    Client, mkClient, defaultClient, defaultPort, Properties, Type, IndexName,
-    RelationshipRetrievalType (..), NodeID,
-    nodeProperties, relationshipFrom, relationshipTo, relationshipType, relationshipProperties,
-    getNodeID, createNode, getNode, lookupNode, deleteNode, createRelationship,
-    deleteRelationship, getRelationships, incomingRelationships,
-    outgoingRelationships,allRelationships, typedRelationships, indexNode, indexNodeByProperty,
-    indexNodeByAllProperties, findNodes
+    -- * Connecting to Neo4J
+    Client, mkClient, defaultClient, defaultPort,
+    -- * Working with Nodes
+    createNode, nodeProperties, getNodeID, getNode, lookupNode, deleteNode,
+    -- * Working with Relationships
+    relationshipFrom, relationshipTo, relationshipType, relationshipProperties,
+    createRelationship, deleteRelationship, getRelationships, incomingRelationships,
+    outgoingRelationships,allRelationships, typedRelationships,
+    -- * Working with Indexes
+    indexNode, indexNodeByProperty, indexNodeByAllProperties, findNodes,
+    -- * Data Types
+    Properties, Type, IndexName, RelationshipRetrievalType (..), NodeID
     ) where
 
 import Control.Monad
@@ -79,6 +84,7 @@ createNode client properties = do
         Left err -> Left $ show err
 
 -- | Retrieve a node from its URI in Neo4J
+getNode :: URI -> IO (Either String Node)
 getNode uri = do
     let request = mkRequest GET uri
     result <- simpleHTTP request
@@ -91,12 +97,14 @@ getNode uri = do
         Left err -> Left $ show err
 
 -- | Retrieve a node from its ID number in Neo4J
+lookupNode :: Client -> NodeID -> IO (Either String Node)
 lookupNode client nodeID = 
     getNode $ serviceRootURI client `appendToPath` "node" `appendToPath` (show nodeID)
 
 deleteNode node@(Node uri _) = delete "Node" uri
 
 -- | Create a relationship between two nodes. You must specify a name/relationship type
+createRelationship :: Node -> Node -> String -> IO (Either String Relationship)
 createRelationship n@(Node from _) m@(Node to _) name = do
     let uri = from `appendToPath` "relationships"
     let request = buildPost uri $ toStrictByteString $ encode $
@@ -113,6 +121,7 @@ createRelationship n@(Node from _) m@(Node to _) name = do
 deleteRelationship (Relationship uri _ _ _ _) = delete "Relationship" uri
 
 -- | Get all the relationships of a given type for a node.
+getRelationships :: RelationshipRetrievalType -> Node -> IO (Either String [Relationship])
 getRelationships rrType (Node nodeURI _) = do
     let uri = nodeURI `appendToPath` "relationships" `appendToPath` case rrType of
             All ->  "all"
@@ -152,6 +161,7 @@ outgoingRelationships = getRelationships Outgoing
 allRelationships = getRelationships All
 
 -- | Get relationships of a specified type
+typedRelationships :: RelationshipType -> Node -> IO (Either String [Relationship])
 typedRelationships relType = getRelationships (Typed relType)
 
 createNodeIndex :: Client -> IndexName -> IO (Either String ())

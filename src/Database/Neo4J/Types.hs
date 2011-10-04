@@ -31,6 +31,7 @@ data Relationship = Relationship {
 } deriving (Show)
 type Type = String
 type IndexName = String
+type RelationshipType = String
 
 instance ToJSON Node where
     toJSON (Node _ properties) = object properties
