@@ -101,6 +101,7 @@ lookupNode :: Client -> NodeID -> IO (Either String Node)
 lookupNode client nodeID = 
     getNode $ serviceRootURI client `appendToPath` "node" `appendToPath` (show nodeID)
 
+deleteNode :: Node -> IO (Either String ())
 deleteNode node@(Node uri _) = delete "Node" uri
 
 -- | Create a relationship between two nodes. You must specify a name/relationship type
@@ -118,6 +119,7 @@ createRelationship n@(Node from _) m@(Node to _) name = do
             _ -> Left ("Relationship wasn't created. See response: " ++ (show response))
         Left err -> Left $ show err
 
+deleteRelationship :: Relationship -> IO (Either String ())
 deleteRelationship (Relationship uri _ _ _ _) = delete "Relationship" uri
 
 -- | Get all the relationships of a given type for a node.
