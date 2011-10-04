@@ -26,7 +26,7 @@ module Database.Neo4J (
     getNodeID, createNode, getNode, lookupNode, deleteNode, createRelationship,
     deleteRelationship, getRelationships, incomingRelationships,
     outgoingRelationships,allRelationships, typedRelationships, indexNode, indexNodeByProperty,
-    indexNodeByAllProperties
+    indexNodeByAllProperties, findNodes
     ) where
 
 import Control.Monad
@@ -150,6 +150,8 @@ getRelationships rrType (Node nodeURI _) = do
 incomingRelationships = getRelationships Incoming
 outgoingRelationships = getRelationships Outgoing
 allRelationships = getRelationships All
+
+-- | Get relationships of a specified type
 typedRelationships relType = getRelationships (Typed relType)
 
 createNodeIndex :: Client -> IndexName -> IO (Either String ())
