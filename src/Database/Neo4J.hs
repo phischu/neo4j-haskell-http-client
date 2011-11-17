@@ -86,7 +86,7 @@ checkClient client uris = all (\uri -> dbInfo (serviceRootURI client) == dbInfo 
 
 clientGuard :: Client -> [URI] -> IO (Either String a) -> IO (Either String a)
 clientGuard client uris f
-    | checkClient client uris =
+    | not $ checkClient client uris =
         return $ Left "Neo4j data must come from the same client"
     | otherwise = f
 
