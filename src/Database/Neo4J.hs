@@ -243,7 +243,8 @@ typedRelationships client relType = getRelationships client (Typed relType)
 
 createNodeIndex :: Client -> IndexName -> IO (Either String ())
 createNodeIndex client indexName = do
-    let uri = serviceRootURI client `appendToPath` "index" `appendToPath` "node"
+    let uri = serviceRootURI client `appendToPath` "index" `appendToPath`
+            "node"
     let request = buildPost uri $ toStrictByteString $ encode $
             object [("name", toJSON indexName)]
     result <- simpleHTTP request
@@ -258,14 +259,16 @@ createNodeIndex client indexName = do
 indexNodeByProperty :: Client -> IndexName -> Text -> Node -> IO (Either String ())
 indexNodeByProperty client indexName propertyName node@(Node nodeURI properties) = 
     case lookup propertyName properties of
-        Just propertyValue -> indexNode client indexName node propertyName propertyValue
+        Just propertyValue -> indexNode client indexName node propertyName
+                                propertyValue
         Nothing -> return $ Left $ printf "Property %s not in node %s"
                                         (Text.unpack propertyName) (show node)
 
 -- | Add all properties of a given node to indices, each of which is named the same as the property key
 indexNodeByAllProperties :: Client -> Node -> IO (Either String ())
 indexNodeByAllProperties client node@(Node _ properties) = let keys = map fst properties in do
-    rs <- mapM (\key -> indexNodeByProperty client (Text.unpack key) key node) keys
+    rs <- mapM (\key -> indexNodeByProperty client (Text.unpack key) key node)
+            keys
     return $ sequence_ rs
 
 -- | Add a node to the given index, specifying your own key and value
