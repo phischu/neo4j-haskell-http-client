@@ -251,7 +251,8 @@ createNodeIndex client indexName = do
     return $ case result of
         Right response -> case rspCode response of
             (2, 0, 1) -> Right ()
-            _         -> Left ("Index not created. Actual response: " ++ (show response))
+            _         -> Left ("Index not created. Actual response: " ++
+                                (show response))
         Left err -> Left (show err)
 
 -- | If a node has a specific property, add the property to the given index.
@@ -273,16 +274,18 @@ indexNode :: Client -> IndexName -> Node -> Text -> Value -> IO (Either String (
 indexNode client indexName node@(Node nodeURI _) key value =
     case fromJSON' value of
         Just value' -> do
-            let uri = serviceRootURI client `appendToPath` "index" `appendToPath`
+            let uri = serviceRootURI client `appendToPath`
+                        "index" `appendToPath`
                         "node" `appendToPath` indexName `appendToPath`
                         (Text.unpack key) `appendToPath` value'
-            result <- simpleHTTP $ buildPost uri $ toStrictByteString $ encode $
-                toJSON $ show nodeURI
+            result <- simpleHTTP $ buildPost uri $ toStrictByteString $
+                encode $ toJSON $ show nodeURI
             return $ case fmap rspCode result of
                 Right (2, 0, 1) -> Right ()
                 Left err        -> Left $ show err
-                _               -> Left $ printf "Node not indexed. Actual response: %s"
-                                            (show result)
+                _               ->
+                    Left $ printf "Node not indexed. Actual response: %s"
+                                (show result)
         Nothing -> return $ Left $
             printf "The impossible happened: %s couldn't be converted from JSON" (show value)
 
