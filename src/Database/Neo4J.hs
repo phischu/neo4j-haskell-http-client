@@ -12,13 +12,9 @@ Client interface to Neo4J over REST. Here's a simple example (never mind the cav
 >    let client = mkClient "192.168.56.101" defaultPort
 >    Right n <- createNode client [("name", "Neo"), ("quote", "Whoa.")]
 >    Right m <- createNode client [("name", "Trinity"), ("quote", "Dodge this.")]
->    print n
->    print m
->    Right r <- createRelationship n m "LOVES"
->    print r
->    indexNodeByAllProperties n
+>    Right r <- createRelationship client n m "LOVES"
+>    indexNodeByAllProperties client n
 >    nodes <- findNodes client "name" "name" "Neo"
->    print nodes
 -}
 
 module Database.Neo4J (
@@ -67,10 +63,12 @@ nodeFromResponseBody body = do
     return $ Node selfURI (fromMaybe [] $ pullNodeProperties body)
 
 buildRequestWithContent method uri content =
-        Request { rqURI = uri, rqMethod = method, rqHeaders = headers, rqBody = content }
+        Request { rqURI = uri, rqMethod = method, rqHeaders = headers,
+                  rqBody = content }
     where
         headers =
-            [mkHeader HdrContentType "application/json", mkHeader HdrContentLength contentLength]
+            [mkHeader HdrContentType "application/json",
+             mkHeader HdrContentLength contentLength]
         contentLength = show $ BSC.length content
 
 buildPut = buildRequestWithContent PUT
@@ -112,7 +110,8 @@ getNode client uri = clientGuard client [uri] $ do
             (2, 0, 0) -> case nodeFromResponseBody $ rspBody response of
                 Just node -> Right node
                 _         -> Left "Node parse error"
-            _ -> Left ("Node probably doesn't exist. Response code " ++ (show $ rspCode response))
+            _ -> Left ("Node probably doesn't exist. Response code " ++
+                        (show $ rspCode response))
         Left err -> Left $ show err
 
 -- | Retrieve a node from its ID number in Neo4J
