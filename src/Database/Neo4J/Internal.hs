@@ -2,6 +2,7 @@
 
 module Database.Neo4J.Internal where
 
+import Database.Neo4J.Types
 import Control.Monad
 import Data.Maybe
 import Data.Aeson
@@ -13,6 +14,7 @@ import Network.HTTP.Base
 import Network.URI
 import qualified Data.ByteString.Char8 as BSC
 import Debug.Trace
+import Data.List.Split (splitOn)
 
 traceShow' x = traceShow x x
 
@@ -23,6 +25,18 @@ appendToPath uri appendage = uri { uriPath = uriPath uri ++ appendage' }
                         [] -> []
                         ('/':_) -> escape appendage
                         _ -> '/':(escape appendage)
+
+buildRequestWithContent method uri content =
+        Request { rqURI = uri, rqMethod = method, rqHeaders = headers,
+                  rqBody = content }
+    where
+        headers =
+            [mkHeader HdrContentType "application/json",
+             mkHeader HdrContentLength contentLength]
+        contentLength = show $ BSC.length content
+
+buildPut = buildRequestWithContent PUT
+buildPost = buildRequestWithContent POST
 
 lookupAllInJSONResponse jsonResponse keys = case Attoparsec.parse json jsonResponse of
     Attoparsec.Done _ (Object o) -> sequence $ map (\key -> fmap fromJSON $ Map.lookup key o) keys
@@ -53,3 +67,21 @@ delete name uri = do
             (2, 0, 4) -> Right ()
             _ -> Left (name ++ " wasn't deleted. See response: " ++ (show response))
         Left err -> Left (show err)
+
+clientGuard :: Client -> [URI] -> IO (Either String a) -> IO (Either String a)
+clientGuard client uris f
+    | not $ checkClient client uris =
+        return $ Left "Neo4j data must come from the same client"
+    | otherwise = f
+
+checkClient client uris = all (\uri -> dbInfo (serviceRootURI client) == dbInfo uri) uris
+    where
+        -- only for comparing equality!
+        -- example:
+        -- `dbInfo "http://192.168.56.101:7474/db/data/relationship/17"` =>
+        -- `["http:","","192.168.56.101:7474","db","data"]`
+        dbInfo = take 5 . splitOn "/" . show
+
+nodeFromResponseBody body = do
+    selfURI <- pullReturnedSelfURI body
+    return $ Node selfURI (fromMaybe [] $ pullNodeProperties body)

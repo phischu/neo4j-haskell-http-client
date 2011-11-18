@@ -17,21 +17,25 @@ Client interface to Neo4J over REST. Here's a simple example (never mind the cav
 >    nodes <- findNodes client "name" "name" "Neo"
 -}
 
-module Database.Neo4J (
-    -- * Connecting to Neo4J
-    Client, mkClient, defaultClient, defaultPort,
-    -- * Working with Nodes
-    Node(), createNode, nodeProperties, getNodeID, getNode, lookupNode, deleteNode,
-    -- * Working with Relationships
-    Relationship (), relationshipFrom, relationshipTo, relationshipType,
-    relationshipProperties, createRelationship, updateRelationshipProperties,
-    deleteRelationship, getRelationship, getRelationships, incomingRelationships,
-    outgoingRelationships, allRelationships, typedRelationships,
-    -- * Working with Indexes
-    indexNode, indexNodeByProperty, indexNodeByAllProperties, findNodes,
-    -- * Data Types
-    Properties, Type, IndexName, RelationshipRetrievalType (..), NodeID
-    ) where
+-- module Database.Neo4J (
+--     -- * Connecting to Neo4J
+--     Client, mkClient, defaultClient, defaultPort,
+--     -- * Working with Nodes
+--     Node(), createNode, nodeProperties, getNodeID, getNode, lookupNode, deleteNode,
+--     -- * Working with Relationships
+--     Relationship (), relationshipFrom, relationshipTo, relationshipType,
+--     relationshipProperties, createRelationship, updateRelationshipProperties,
+--     deleteRelationship, getRelationship, getRelationships, incomingRelationships,
+--     outgoingRelationships, allRelationships, typedRelationships,
+--     -- * Working with Indexes
+--     indexNode, indexNodeByProperty, indexNodeByAllProperties, findNodes,
+--     -- * Data Types
+--     Properties, Type, IndexName, RelationshipRetrievalType (..), NodeID
+--     -- * Traversals
+--     
+--     ) where
+
+module Database.Neo4J where
 
 import Control.Monad
 import Text.Printf
@@ -41,10 +45,14 @@ import Data.Either.Unwrap
 import Data.Aeson
 import Data.Aeson.Parser
 import qualified Data.Attoparsec as Attoparsec
+import Database.Neo4J.Node
+import Database.Neo4J.Relationship
 import Database.Neo4J.Types
 import Database.Neo4J.Internal
+import Database.Neo4J.Traversal
 import Network.HTTP
 import Network.URI
+import Data.String
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.ByteString.Char8 as BSC
@@ -54,192 +62,11 @@ import Data.Either.Unwrap
 import Control.Applicative
 import Debug.Trace
 import Data.Maybe
-import Data.List.Split (splitOn)
-
-data RelationshipRetrievalType = All | Incoming | Outgoing | Typed String deriving (Eq)
-
-nodeFromResponseBody body = do
-    selfURI <- pullReturnedSelfURI body
-    return $ Node selfURI (fromMaybe [] $ pullNodeProperties body)
-
-buildRequestWithContent method uri content =
-        Request { rqURI = uri, rqMethod = method, rqHeaders = headers,
-                  rqBody = content }
-    where
-        headers =
-            [mkHeader HdrContentType "application/json",
-             mkHeader HdrContentLength contentLength]
-        contentLength = show $ BSC.length content
-
-buildPut = buildRequestWithContent PUT
-buildPost = buildRequestWithContent POST
-
-checkClient client uris = all (\uri -> dbInfo (serviceRootURI client) == dbInfo uri) uris
-    where
-        -- only for comparing equality!
-        -- example:
-        -- `dbInfo "http://192.168.56.101:7474/db/data/relationship/17"` =>
-        -- `["http:","","192.168.56.101:7474","db","data"]`
-        dbInfo = take 5 . splitOn "/" . show
-
-clientGuard :: Client -> [URI] -> IO (Either String a) -> IO (Either String a)
-clientGuard client uris f
-    | not $ checkClient client uris =
-        return $ Left "Neo4j data must come from the same client"
-    | otherwise = f
-
--- | Create a node in Neo4J from a list of properties. The list may be empty.
-createNode :: Client -> Properties -> IO (Either String Node)
-createNode client properties = do
-    let uri = serviceRootURI client `appendToPath` "node"
-    let request = buildPost uri $ toStrictByteString $ encode $ object properties
-    result <- simpleHTTP request
-    return $ case result of
-        Right response -> case pullReturnedSelfURI $ rspBody response of
-            Just selfURI -> Right $ Node selfURI properties
-            _            -> Left "no url returned :o"
-        Left err -> Left $ show err
-
--- | Retrieve a node from its URI in Neo4J
-getNode :: Client -> URI -> IO (Either String Node)
-getNode client uri = clientGuard client [uri] $ do
-    let request = mkRequest GET uri
-    result <- simpleHTTP request
-    return $ case result of
-        Right response -> case rspCode response of
-            (2, 0, 0) -> case nodeFromResponseBody $ rspBody response of
-                Just node -> Right node
-                _         -> Left "Node parse error"
-            _ -> Left ("Node probably doesn't exist. Response code " ++
-                        (show $ rspCode response))
-        Left err -> Left $ show err
-
--- | Retrieve a node from its ID number in Neo4J
-lookupNode :: Client -> NodeID -> IO (Either String Node)
-lookupNode client nodeID = 
-    getNode client $
-        serviceRootURI client `appendToPath` "node"
-            `appendToPath` (show nodeID)
-
-deleteNode :: Client -> Node -> IO (Either String ())
-deleteNode client node@(Node uri _) = clientGuard client [uri] $
-    delete "Node" uri
-
--- | Create a relationship between two nodes. You must specify a name/relationship type
-createRelationship :: Client -> Node -> Node -> String -> Properties -> IO (Either String Relationship)
-createRelationship client n@(Node from _) m@(Node to _) name properties =
-    clientGuard client [from, to] $ do
-        let uri = from `appendToPath` "relationships"
-        let request = buildPost uri $ toStrictByteString $ encode $
-                    object [("to", toJSON $ show to), ("type", toJSON name)]
-        r <- getRelationshipFromHTTPResult client =<< simpleHTTP request
-        case (properties, r) of
-            ([], _)            -> return r
-            (_, Right relationship) ->
-                updateRelationshipProperties client relationship properties
-            (_, Left err)           -> return $ Left err
-
-getRelationshipFromHTTPResult client result = case result of
-    Right response -> case rspCode response of
-        (2, 0, 0) -> let body = rspBody response in
-            case Attoparsec.parse json body of
-                Attoparsec.Done _ o ->
-                    case relationshipAttributesFromParsedResponse body o of
-                    Just attrs  -> mkRelationshipFromAttributes client attrs
-                    Nothing     -> return $
-                        Left "Couldn't pull relationship attributes"
-                _            -> return $ Left
-                    ("Couldn't parse response as JSON. Response : " ++
-                                        (show response))
-        (2, 0, 1) -> case pullReturnedSelfURI $ rspBody response of
-            Just selfURI -> getRelationship client selfURI
-            _            -> return $ Left "no url returned :o"
-        _ -> return $
-            Left ("Relationship wasn't returned in response. " ++
-                (show response))
-    Left err -> return $ Left $ show err
-
-getRelationship :: Client -> URI -> IO (Either String Relationship)
-getRelationship client uri = clientGuard client [uri] $ do
-    let request = mkRequest GET uri
-    (getRelationshipFromHTTPResult client) =<< simpleHTTP request
-
--- | Update the properties of a relationship
-updateRelationshipProperties :: Client -> Relationship -> Properties -> IO (Either String Relationship)
-updateRelationshipProperties client r ps =
-    clientGuard client [(relationshipURI r)] $ do
-        let uri = (relationshipURI r) `appendToPath` "properties"
-        let request = buildPut uri (toStrictByteString $ encode $ object ps)
-        result <- simpleHTTP request
-        case result of
-            Right response -> case rspCode response of
-                (2, 0, 4) -> getRelationship defaultClient (relationshipURI r)
-                _         -> return $ Left ("Couldn't update relationship. "
-                                ++ (show response))
-
-deleteRelationship :: Client -> Relationship -> IO (Either String ())
-deleteRelationship client (Relationship uri _ _ _ _) =
-    clientGuard client [uri] $ delete "Relationship" uri
-
-relationshipAttributesFromParsedResponse body (Object o) = do
-    start <- (parseURI <=< fromJSON') =<< Map.lookup "start" o
-    end <- (parseURI <=< fromJSON') =<< Map.lookup "end" o
-    self <- (parseURI <=< fromJSON') =<< Map.lookup "self" o
-    name <- fromJSON' =<< Map.lookup "type" o
-    props <- (fmap Map.toList . fromJSON') =<< Map.lookup "data" o
-    return (self, start, end, name, props)
-relationshipAttributesFromParsedResponse _ _ = Nothing
-
-mkRelationshipFromAttributes client (self, start, end, name, props) = do
-    x <- getNode client start
-    y <- getNode client end
-    case (x, y) of
-        (Right x', Right y')   ->
-            return $ Right $ Relationship self x' y' name props
-        (Left err, Right _)    ->
-            return $ Left $ printf "%s: %s" (show start) (show err)
-        (Right _, Left err)    ->
-            return $ Left $ printf "%s: %s" (show end) (show err)
-        (Left err1, Left err2) ->
-            return $ Left $ printf "%s: %s" (show (start, end))
-                                            (show (err1, err2))
-
--- | Get all the relationships of a given type for a node.
-getRelationships :: Client -> RelationshipRetrievalType -> Node -> IO (Either String [Relationship])
-getRelationships client rrType (Node nodeURI _) = do
-    let uri = nodeURI `appendToPath` "relationships" `appendToPath`
-            case rrType of
-                All ->  "all"
-                Incoming -> "in"
-                Outgoing -> "out"
-                Typed relType -> "all/" ++ relType
-    result <- simpleHTTP $ mkRequest GET uri
-    let relationshipResult = case result of
-            Right response -> case rspCode response of
-                (2, 0, 0) -> let body = rspBody response in
-                    case Attoparsec.parse json body of
-                        Attoparsec.Done _ (Array v) -> Right $ mapM 
-                            (relationshipAttributesFromParsedResponse body)
-                                (V.toList v)
-                        _ -> Left ("Couldn't parse response " ++
-                                (show response))
-                _ -> Left $ show response
-            Left err -> Left $ show err
-    case relationshipResult of
-        Right (Just xs) -> fmap sequence $
-            mapM (mkRelationshipFromAttributes client) xs
-        Right _ -> return $ Left $
-            printf "Couldn't extract data from relationship response %s" $
-                    show relationshipResult
-        Left err -> return $ Left $ show err
-
-incomingRelationships client = getRelationships client Incoming
-outgoingRelationships client = getRelationships client Outgoing
-allRelationships client = getRelationships client All
 
 -- | Get relationships of a specified type
 typedRelationships :: Client -> RelationshipType -> Node -> IO (Either String [Relationship])
-typedRelationships client relType = getRelationships client (Typed relType)
+typedRelationships client relType =
+    getRelationships client (RetrieveTyped relType)
 
 createNodeIndex :: Client -> IndexName -> IO (Either String ())
 createNodeIndex client indexName = do

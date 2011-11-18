@@ -17,19 +17,30 @@ data Client = Client {
 } deriving (Show)
 
 type NodeID = Integer
+
 data Node = Node {
     nodeURI :: URI,
     nodeProperties :: Properties
 } deriving (Eq, Show)
+
 type Properties = [Pair]
+
 data Relationship = Relationship {
     relationshipURI :: URI,
     relationshipFrom :: Node,
     relationshipTo :: Node,
-    relationshipType :: Type,
+    relationshipType :: RelationshipType,
     relationshipProperties :: Properties
-} deriving (Show)
-type Type = String
+} deriving (Eq, Show)
+
+data Path = Path {
+    pathLength :: Integer,
+    pathStart :: Node,
+    pathNodes :: [Node],
+    pathRelationships :: [Relationship],
+    pathEnd :: Node
+} deriving (Eq, Show)
+
 type IndexName = String
 type RelationshipType = String
 
