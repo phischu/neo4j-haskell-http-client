@@ -167,7 +167,7 @@ traverse traversalOptions returnType (Node nodeURI _) = EitherT $ do
     return $ case result of
         Right response -> case rspCode response of
             (2, 0, 0) -> Right $ rspBody response
-            _         -> Left ("shit happened: " ++ (show response))
+            _         -> Left ("Traversal error: " ++ (show response))
         Left err -> Left $ show err
 
 pathTraversalURIs :: Client -> TraversalOptions -> Node -> IO (Either String [PathWithURIs])
