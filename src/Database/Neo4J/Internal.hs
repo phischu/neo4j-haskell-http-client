@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
 module Database.Neo4J.Internal where
 
@@ -39,7 +39,8 @@ buildPut = buildRequestWithContent PUT
 buildPost = buildRequestWithContent POST
 
 lookupAllInJSONResponse jsonResponse keys = case Attoparsec.parse json jsonResponse of
-    Attoparsec.Done _ (Object o) -> sequence $ map (\key -> fmap fromJSON $ Map.lookup key o) keys
+    Attoparsec.Done _ (Object o) -> sequence $
+        map (\key -> fmap fromJSON $ Map.lookup key o) keys
     _                            -> Nothing
 
 fromJSON' x = case fromJSON x of
@@ -81,7 +82,3 @@ checkClient client uris = all (\uri -> dbInfo (serviceRootURI client) == dbInfo 
         -- `dbInfo "http://192.168.56.101:7474/db/data/relationship/17"` =>
         -- `["http:","","192.168.56.101:7474","db","data"]`
         dbInfo = take 5 . splitOn "/" . show
-
-nodeFromResponseBody body = do
-    selfURI <- pullReturnedSelfURI body
-    return $ Node selfURI (fromMaybe [] $ pullNodeProperties body)

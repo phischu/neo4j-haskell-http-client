@@ -17,25 +17,35 @@ Client interface to Neo4J over REST. Here's a simple example (never mind the cav
 >    nodes <- findNodes client "name" "name" "Neo"
 -}
 
--- module Database.Neo4J (
---     -- * Connecting to Neo4J
---     Client, mkClient, defaultClient, defaultPort,
---     -- * Working with Nodes
---     Node(), createNode, nodeProperties, getNodeID, getNode, lookupNode, deleteNode,
---     -- * Working with Relationships
---     Relationship (), relationshipFrom, relationshipTo, relationshipType,
---     relationshipProperties, createRelationship, updateRelationshipProperties,
---     deleteRelationship, getRelationship, getRelationships, incomingRelationships,
---     outgoingRelationships, allRelationships, typedRelationships,
---     -- * Working with Indexes
---     indexNode, indexNodeByProperty, indexNodeByAllProperties, findNodes,
---     -- * Data Types
---     Properties, Type, IndexName, RelationshipRetrievalType (..), NodeID
---     -- * Traversals
---     
---     ) where
+module Database.Neo4J (
+    -- * Connecting to Neo4J
+    Client, mkClient, defaultClient, defaultPort,
+    -- * Working with Nodes
+    Node(), createNode, nodeProperties, getNodeID, getNode, getNodes,
+    lookupNode, deleteNode,
+    -- * Working with Relationships
+    Relationship(), relationshipFrom, relationshipTo, relationshipType,
+    relationshipProperties, createRelationship, updateRelationshipProperties,
+    deleteRelationship, getRelationship, getRelationships,
+    incomingRelationships,
+    outgoingRelationships, allRelationships, typedRelationships,
+    -- * Working with Indexes
+    indexNode, indexNodeByProperty, indexNodeByAllProperties, findNodes,
+    -- * Data Types
+    Properties, RelationshipType, IndexName, RelationshipRetrievalType(..),
+    NodeID,
+    -- * Traversals
+    TraversalOption, TraversalOptions, TraversalReturnType(..),
+    TraversalOrder(..), TraverseRelationships(..), TraverseRelationship(..),
+    Language(..), TraversalUniqueness(..),
+    TraversalReturnFilter(..), TraversalPruneEvaluator(..), PathWithURIs(..),
+    Path(..), pathTraversalURIs, pathTraversal,
+    -- ** Setting Traversal Options
+    set, order, uniqueness, returnFilter, maxDepth, pruneEvaluator,
+    relationships, defaultBFSOptions
+    ) where
 
-module Database.Neo4J where
+-- module Database.Neo4J where
 
 import Control.Monad
 import Text.Printf

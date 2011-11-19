@@ -25,6 +25,7 @@ import System.IO.Unsafe
 import Control.Exception
 
 type TraversalOption = Pair
+type TraversalOptions = [TraversalOption]
 
 data TraversalReturnType = ReturnNodes | ReturnRelationships | ReturnPaths | ReturnFullPaths deriving (Eq)
 
@@ -68,6 +69,7 @@ instance ToJSON TraversalUniqueness where
     toJSON RelationshipPathUniqueness = toJSON "relationship_path"
     toJSON NoUniqueness = toJSON "none"
 
+-- | The language that any custom filters or evaluators are written in.
 data Language = JavaScript | BuiltIn deriving (Eq)
 
 instance ToJSON Language where
@@ -92,11 +94,11 @@ instance ToJSON TraversalPruneEvaluator where
         [fromString "name" .= "none", fromString "language" .= BuiltIn]
 
 data PathWithURIs = PathWithURIs {
-    prStart :: URI,
-    prNodes :: [URI],
-    prLength :: Integer,
-    prRelationships :: [URI],
-    prEnd :: URI
+    puStart :: URI,
+    puNodes :: [URI],
+    puLength :: Integer,
+    puRelationships :: [URI],
+    puEnd :: URI
 } deriving (Show, Eq)
 
 data PathsWithURIs = PathsWithURIs [PathWithURIs]
@@ -140,12 +142,19 @@ pruneEvaluator x = fromString "prune_evaluator" .= x
 relationships :: TraverseRelationships -> TraversalOption
 relationships xs = fromString "relationships" .= xs
 
+-- | uniqueness: node-global ('NodeGlobalUniqueness'), pruneEvaluator: none ('NoEvaluator'), returnFilter: all ('ReturnAll'), maxDepth: 3
+defaultBFSOptions :: TraversalOptions
 defaultBFSOptions =
     [order BFS, uniqueness NodeGlobalUniqueness,
      pruneEvaluator NoEvaluator, returnFilter ReturnAll, maxDepth 3]
 
--- | Favours second for what ends up in the result (i.e. second keys overwrite first)
-set :: [Pair] -> [Pair] -> [Pair]
+{- | Favours second for what ends up in the result (i.e. second keys overwrite first).
+
+> opts = defaultBFSOptions `set` [
+>            maxDepth 6, relationships [TraverseOutgoing "KNOWS"]
+>        ]
+-}
+set :: TraversalOptions -> TraversalOptions -> TraversalOptions
 set xs ys = nubBy ((==) `on` fst) (ys ++ xs)
 
 traverse traversalOptions returnType (Node nodeURI _) = EitherT $ do
@@ -161,7 +170,7 @@ traverse traversalOptions returnType (Node nodeURI _) = EitherT $ do
             _         -> Left ("shit happened: " ++ (show response))
         Left err -> Left $ show err
 
-pathTraversalURIs :: Client -> [TraversalOption] -> Node -> IO (Either String [PathWithURIs])
+pathTraversalURIs :: Client -> TraversalOptions -> Node -> IO (Either String [PathWithURIs])
 pathTraversalURIs client traversalOptions node = runEitherT $ do
     traverseResult <- traverse traversalOptions ReturnPaths node
     EitherT $ return $ case parse json traverseResult of
@@ -170,9 +179,11 @@ pathTraversalURIs client traversalOptions node = runEitherT $ do
             Success (PathsWithURIs ps) -> Right ps
         Fail _ contexts err -> Left (show (contexts, err))
 
-pathTraversal :: Client -> [TraversalOption] -> Node -> IO (Either String [Path])
+pathTraversal :: Client -> TraversalOptions -> Node -> IO (Either String [Path])
 pathTraversal client traversalOptions node = runEitherT $ do
     pfrs <- EitherT $ pathTraversalURIs client traversalOptions node
+    -- probably could try pulling all uris, do batch lookup, store in Map, and
+    -- replace in each individual PathWithURIs structure at once
     dereferencePaths client pfrs
 
 tryAndRetry f = catch f (\e -> print (e :: IOException) >> f)
@@ -180,13 +191,12 @@ tryAndRetry f = catch f (\e -> print (e :: IOException) >> f)
 dereferencePaths client pfrs = mapM deref pfrs
     where
         deref (PathWithURIs {..}) = do
-            start <- getNode' client prStart
-            nodes <- mapM (getNode' client) prNodes
-            let len = prLength
-            relationships <- mapM (getRelationship' client) prRelationships
-            end <- getNode' client prEnd
-            return $ Path len start nodes relationships end
-        getNode' client uri = EitherT $ unsafeInterleaveIO $
-            getNode client uri
-        getRelationship' client uri = EitherT $ unsafeInterleaveIO $
+            (start:end:nodes) <- getNodes' client (puStart:puEnd:puNodes)
+            let len = puLength
+            -- TODO: use batch ops to get relationships
+            relationships <- mapM (getRelationship' client) puRelationships
+            return $ Path start nodes len relationships end
+        getNodes' client uris = EitherT $
+            getNodes client uris
+        getRelationship' client uri = EitherT $
             getRelationship client uri

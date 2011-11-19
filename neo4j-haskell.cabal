@@ -53,11 +53,14 @@ Library
   Exposed-modules: Database.Neo4J
   
   -- Packages needed in order to build this package.
-  Build-depends: base, containers, bytestring, HTTP, network, split, either-unwrap,
-                 bytestring-class, attoparsec, aeson, text, vector
+  Build-depends: base, containers, bytestring, HTTP, network, split,
+                 either-unwrap, EitherT, bytestring-class, attoparsec, aeson,
+                 text, vector
   
   -- Modules not exported by this package.
-  Other-modules: Database.Neo4J.Internal, Database.Neo4J.Types
+  Other-modules: Database.Neo4J.Internal, Database.Neo4J.Types,
+                 Database.Neo4J.Node, Database.Neo4J.Relationship,
+                 Database.Neo4J.Traversal
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
