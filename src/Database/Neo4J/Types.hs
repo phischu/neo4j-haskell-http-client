@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Neo4J.Types where
+module Database.Neo4j.Types where
 
 import Text.Printf
 import Network.URI

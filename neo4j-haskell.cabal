@@ -10,7 +10,7 @@ Name:                neo4j-haskell
 Version:             0.3
 
 -- A short (one-line) description of the package.
-Synopsis:            HTTP bindings for neo4j
+Synopsis:            HTTP bindings for Neo4j
 
 -- A longer description of the package.
 -- Description:         
@@ -50,7 +50,7 @@ Library
   hs-source-dirs: src
   
   -- Modules exported by the library.
-  Exposed-modules: Database.Neo4J
+  Exposed-modules: Database.Neo4j
   
   -- Packages needed in order to build this package.
   Build-depends: base, containers, bytestring, HTTP, network, split,
@@ -58,9 +58,9 @@ Library
                  text, vector
   
   -- Modules not exported by this package.
-  Other-modules: Database.Neo4J.Internal, Database.Neo4J.Types,
-                 Database.Neo4J.Node, Database.Neo4J.Relationship,
-                 Database.Neo4J.Traversal
+  Other-modules: Database.Neo4j.Internal, Database.Neo4j.Types,
+                 Database.Neo4j.Node, Database.Neo4j.Relationship,
+                 Database.Neo4j.Traversal
   
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         

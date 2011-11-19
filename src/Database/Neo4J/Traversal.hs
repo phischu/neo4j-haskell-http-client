@@ -1,12 +1,12 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Database.Neo4J.Traversal where
+module Database.Neo4j.Traversal where
 
 import Prelude hiding (catch)
-import Database.Neo4J.Node
-import Database.Neo4J.Relationship
-import Database.Neo4J.Internal
-import Database.Neo4J.Types
+import Database.Neo4j.Node
+import Database.Neo4j.Relationship
+import Database.Neo4j.Internal
+import Database.Neo4j.Types
 import Data.Aeson
 import Data.Aeson.Types hiding (parse)
 import qualified Data.Vector as V

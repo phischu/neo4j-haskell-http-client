@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Database.Neo4J.Relationship where
+module Database.Neo4j.Relationship where
 
-import Database.Neo4J.Node
+import Database.Neo4j.Node
 import qualified Data.Map as Map
-import Database.Neo4J.Types
-import Database.Neo4J.Internal
+import Database.Neo4j.Types
+import Database.Neo4j.Internal
 import Network.HTTP
 import Network.URI
 import Data.Aeson

@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
-module Database.Neo4J.Internal where
+module Database.Neo4j.Internal where
 
-import Database.Neo4J.Types
+import Database.Neo4j.Types
 import Control.Monad
 import Data.Maybe
 import Data.Aeson

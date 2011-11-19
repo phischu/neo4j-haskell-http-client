@@ -1,9 +1,9 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 
-module Database.Neo4J.Node where
+module Database.Neo4j.Node where
 
-import Database.Neo4J.Types
-import Database.Neo4J.Internal
+import Database.Neo4j.Types
+import Database.Neo4j.Internal
 import Network.HTTP
 import Network.URI
 import Data.Aeson
@@ -15,7 +15,7 @@ import qualified Data.Vector as V
 import Control.Monad
 import Data.List.Split (splitOn)
 
--- | Create a node in Neo4J from a list of properties. The list may be empty.
+-- | Create a node in Neo4j from a list of properties. The list may be empty.
 createNode :: Client -> Properties -> IO (Either String Node)
 createNode client properties = do
     let uri = serviceRootURI client `appendToPath` "node"
@@ -28,7 +28,7 @@ createNode client properties = do
             _            -> Left "no url returned :o"
         Left err -> Left $ show err
 
--- | Retrieve a node from its URI in Neo4J
+-- | Retrieve a node from its URI in Neo4j
 getNode :: Client -> URI -> IO (Either String Node)
 getNode client uri = clientGuard client [uri] $ do
     let request = mkRequest GET uri
@@ -42,7 +42,7 @@ getNode client uri = clientGuard client [uri] $ do
                         (show $ rspCode response))
         Left err -> Left $ show err
 
--- | Retrieve a node from its ID number in Neo4J
+-- | Retrieve a node from its ID number in Neo4j
 lookupNode :: Client -> NodeID -> IO (Either String Node)
 lookupNode client nodeID = 
     getNode client $

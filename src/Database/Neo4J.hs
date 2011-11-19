@@ -4,9 +4,9 @@
 
 {- |
 
-Client interface to Neo4J over REST. Here's a simple example (never mind the cavalier pattern matching):
+Client interface to Neo4j over REST. Here's a simple example (never mind the cavalier pattern matching):
 
-> import Database.Neo4J
+> import Database.Neo4j
 >
 > main = do
 >    let client = mkClient "192.168.56.101" defaultPort
@@ -17,8 +17,8 @@ Client interface to Neo4J over REST. Here's a simple example (never mind the cav
 >    nodes <- findNodes client "name" "name" "Neo"
 -}
 
-module Database.Neo4J (
-    -- * Connecting to Neo4J
+module Database.Neo4j (
+    -- * Connecting to Neo4j
     Client, mkClient, defaultClient, defaultPort,
     -- * Working with Nodes
     Node(), createNode, nodeProperties, getNodeID, getNode, getNodes,
@@ -45,7 +45,7 @@ module Database.Neo4J (
     relationships, defaultBFSOptions
     ) where
 
--- module Database.Neo4J where
+-- module Database.Neo4j where
 
 import Control.Monad
 import Text.Printf
@@ -55,11 +55,11 @@ import Data.Either.Unwrap
 import Data.Aeson
 import Data.Aeson.Parser
 import qualified Data.Attoparsec as Attoparsec
-import Database.Neo4J.Node
-import Database.Neo4J.Relationship
-import Database.Neo4J.Types
-import Database.Neo4J.Internal
-import Database.Neo4J.Traversal
+import Database.Neo4j.Node
+import Database.Neo4j.Relationship
+import Database.Neo4j.Types
+import Database.Neo4j.Internal
+import Database.Neo4j.Traversal
 import Network.HTTP
 import Network.URI
 import Data.String
