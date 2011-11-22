@@ -54,6 +54,7 @@ import qualified Data.Vector as V
 import Data.Either.Unwrap
 import Data.Aeson
 import Data.Aeson.Parser
+import Data.Attoparsec.Number (Number (I))
 import qualified Data.Attoparsec as Attoparsec
 import Database.Neo4j.Node
 import Database.Neo4j.Relationship
@@ -111,22 +112,30 @@ indexNodeByAllProperties client node@(Node _ properties) = let keys = map fst pr
 -- | Add a node to the given index, specifying your own key and value
 indexNode :: Client -> IndexName -> Node -> Text -> Value -> IO (Either String ())
 indexNode client indexName node@(Node nodeURI _) key value =
-    case fromJSON' value of
-        Just value' -> do
-            let uri = serviceRootURI client `appendToPath`
-                        "index" `appendToPath`
-                        "node" `appendToPath` indexName `appendToPath`
-                        (Text.unpack key) `appendToPath` value'
-            result <- simpleHTTP $ buildPost uri $ toStrictByteString $
-                encode $ toJSON $ show nodeURI
-            return $ case fmap rspCode result of
-                Right (2, 0, 1) -> Right ()
-                Left err        -> Left $ show err
-                _               ->
-                    Left $ printf "Node not indexed. Actual response: %s"
-                                (show result)
-        Nothing -> return $ Left $
-            printf "The impossible happened: %s couldn't be converted from JSON" (show value)
+        case valueAsString of
+            Just value' -> do
+                let uri = serviceRootURI client `appendToPath`
+                            "index" `appendToPath`
+                            "node" `appendToPath` indexName `appendToPath`
+                            (Text.unpack key) `appendToPath` value'
+                result <- simpleHTTP $ buildPost uri $
+                    toStrictByteString $
+                    encode $ toJSON $ show nodeURI
+                return $ case fmap rspCode result of
+                    Right (2, 0, 1) -> Right ()
+                    Left err        -> Left $ show err
+                    _               ->
+                        Left $ printf "Node not indexed.\
+                        \ Actual response: %s" (show result)
+            Nothing -> return $ Left $
+                printf "I can't convert your value %s automatically\
+                \ into a sane indexable string. Convert it to a string\
+                \ the way you want first." (show value)
+    where
+        valueAsString = case value of
+            String text     -> Just $ Text.unpack text
+            Number (I int)  -> Just $ show int
+            _               -> Nothing
 
 -- | The new way in > 1.5 MILESTONE (https://github.com/neo4j/community/issues/25;cid=1317413794432-668)
 indexNodeNew :: (ToJSON a) => Client -> IndexName -> Node -> Text -> a -> IO (Either String ())
