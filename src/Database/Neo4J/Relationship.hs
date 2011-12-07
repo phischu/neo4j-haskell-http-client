@@ -20,7 +20,7 @@ getRelationshipFromHTTPResult client result = case result of
         (2, 0, 0) -> let body = rspBody response in
             case Attoparsec.parse json body of
                 Attoparsec.Done _ o ->
-                    case relationshipAttributesFromParsedResponse body o of
+                    case relationshipAttributesFromParsedResponse o of
                     Just attrs  -> mkRelationshipFromAttributes client attrs
                     Nothing     -> return $
                         Left "Couldn't pull relationship attributes"
@@ -73,14 +73,14 @@ deleteRelationship :: Client -> Relationship -> IO (Either String ())
 deleteRelationship client (Relationship uri _ _ _ _) =
     clientGuard client [uri] $ delete "Relationship" uri
 
-relationshipAttributesFromParsedResponse body (Object o) = do
+relationshipAttributesFromParsedResponse (Object o) = do
     start <- (parseURI <=< fromJSON') =<< Map.lookup "start" o
     end <- (parseURI <=< fromJSON') =<< Map.lookup "end" o
     self <- (parseURI <=< fromJSON') =<< Map.lookup "self" o
     name <- fromJSON' =<< Map.lookup "type" o
     props <- (fmap Map.toList . fromJSON') =<< Map.lookup "data" o
     return (self, start, end, name, props)
-relationshipAttributesFromParsedResponse _ _ = Nothing
+relationshipAttributesFromParsedResponse _ = Nothing
 
 mkRelationshipFromAttributes client (self, start, end, name, props) = do
     x <- getNode client start
@@ -111,7 +111,7 @@ getRelationships client rrType (Node nodeURI _) = do
                 (2, 0, 0) -> let body = rspBody response in
                     case Attoparsec.parse json body of
                         Attoparsec.Done _ (Array v) -> Right $ mapM 
-                            (relationshipAttributesFromParsedResponse body)
+                            (relationshipAttributesFromParsedResponse)
                                 (V.toList v)
                         _ -> Left ("Couldn't parse response " ++
                                 (show response))

@@ -9,6 +9,7 @@ import Database.Neo4j.Internal
 import Database.Neo4j.Types
 import Data.Aeson
 import Data.Aeson.Types hiding (parse)
+import qualified Data.Map as Map
 import qualified Data.Vector as V
 import Data.Attoparsec
 import Network.HTTP hiding (Done)
@@ -33,7 +34,7 @@ instance Show TraversalReturnType where
     show ReturnNodes = "node"
     show ReturnRelationships = "relationship"
     show ReturnPaths = "path"
-    show ReturnFullPaths = "full_path"
+    show ReturnFullPaths = "fullpath"
 
 instance ToJSON TraversalReturnType where
     toJSON = toJSON . show
@@ -103,6 +104,8 @@ data PathWithURIs = PathWithURIs {
 
 data PathsWithURIs = PathsWithURIs [PathWithURIs]
 
+data Paths = Paths [Path]
+
 instance FromJSON PathsWithURIs where
     parseJSON (Array a) = PathsWithURIs <$> mapM parsePFR (V.toList a)
     parseJSON _ = mzero
@@ -123,6 +126,34 @@ parsePFR (Object o) = do
         parseURI' text = case parseURI text of
             Just x -> return x
             Nothing -> fail (show text ++ " isn't a parseable URI")
+
+instance FromJSON Paths where
+    parseJSON (Array a) = Paths <$> mapM parsePathJSON (V.toList a)
+    parseJSON _ = mzero
+
+parsePathJSON (Object o) = do
+        start <- o .: fromString "start"
+        nodes <- o .: fromString "nodes"
+        len <- o .: fromString "length"
+        relationshipObjects <- o .: fromString "relationships"
+        end <- o .: fromString "end"
+        return $ Path start nodes len
+                 (resolveRelationships nodes relationshipObjects) end
+    where
+        -- Hurray for resolving the nodes locally in relationships without
+        -- going back to query the server! :D
+        resolveRelationships nodes relationshipObjects =
+            map (resolve' nodes) relationshipObjects
+        resolve' nodes obj = Relationship self startNode endNode name props
+            where
+                Just (self, start, end, name, props) = 
+                    relationshipAttributesFromParsedResponse obj
+                startNode = fromJust' $ Map.lookup (show start) nodeMap
+                endNode = fromJust' $ Map.lookup (show end) nodeMap
+                nodeMap = Map.fromList $
+                    map (\(n@(Node uri _)) -> (show uri, n)) nodes
+                fromJust' (Just x) = x
+                fromJust' Nothing = error (show (start, end, nodeMap))
 
 order :: TraversalOrder -> TraversalOption
 order x = fromString "order" .= x
@@ -181,22 +212,11 @@ pathTraversalURIs client traversalOptions node = runEitherT $ do
 
 pathTraversal :: Client -> TraversalOptions -> Node -> IO (Either String [Path])
 pathTraversal client traversalOptions node = runEitherT $ do
-    pfrs <- EitherT $ pathTraversalURIs client traversalOptions node
-    -- probably could try pulling all uris, do batch lookup, store in Map, and
-    -- replace in each individual PathWithURIs structure at once
-    dereferencePaths client pfrs
+    traverseResult <- traverse traversalOptions ReturnFullPaths node
+    EitherT $ return $ case parse json traverseResult of
+        Done _ r -> case fromJSON r of
+            Error err -> Left err
+            Success (Paths ps) -> Right ps
+        Fail _ contexts err -> Left (show (contexts, err))
 
 tryAndRetry f = catch f (\e -> print (e :: IOException) >> f)
-
-dereferencePaths client pfrs = mapM deref pfrs
-    where
-        deref (PathWithURIs {..}) = do
-            (start:end:nodes) <- getNodes' client (puStart:puEnd:puNodes)
-            let len = puLength
-            -- TODO: use batch ops to get relationships
-            relationships <- mapM (getRelationship' client) puRelationships
-            return $ Path start nodes len relationships end
-        getNodes' client uris = EitherT $
-            getNodes client uris
-        getRelationship' client uri = EitherT $
-            getRelationship client uri
