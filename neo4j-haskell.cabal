@@ -54,8 +54,8 @@ Library
   
   -- Packages needed in order to build this package.
   Build-depends: base, unordered-containers, bytestring, HTTP, network, split,
-                 either-unwrap, EitherT, bytestring-class, attoparsec, aeson,
-                 text, vector
+                 either-unwrap, EitherT, bytestring-class, attoparsec,
+                 aeson >= 0.4, text, vector
   
   -- Modules not exported by this package.
   Other-modules: Database.Neo4j.Internal, Database.Neo4j.Types,
