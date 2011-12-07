@@ -49,7 +49,7 @@ module Database.Neo4j (
 
 import Control.Monad
 import Text.Printf
-import qualified Data.Map as Map
+import qualified Data.HashMap.Lazy as Map
 import qualified Data.Vector as V
 import Data.Either.Unwrap
 import Data.Aeson

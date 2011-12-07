@@ -8,7 +8,7 @@ import Data.Maybe
 import Data.Aeson
 import Data.Aeson.Parser
 import qualified Data.Attoparsec as Attoparsec
-import qualified Data.Map as Map
+import qualified Data.HashMap.Lazy as Map
 import Network.HTTP
 import Network.HTTP.Base
 import Network.URI

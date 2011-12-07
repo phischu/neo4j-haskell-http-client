@@ -3,7 +3,7 @@
 module Database.Neo4j.Relationship where
 
 import Database.Neo4j.Node
-import qualified Data.Map as Map
+import qualified Data.HashMap.Lazy as Map
 import Database.Neo4j.Types
 import Database.Neo4j.Internal
 import Network.HTTP

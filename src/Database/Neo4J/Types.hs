@@ -9,7 +9,7 @@ import qualified Data.Text as Text
 import Data.Aeson
 import Data.Aeson.Types
 import Data.List.Split
-import qualified Data.Map as Map
+import qualified Data.HashMap.Lazy as Map
 
 data Client = Client {
     host :: HostName,

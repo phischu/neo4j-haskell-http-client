@@ -9,7 +9,7 @@ import Database.Neo4j.Internal
 import Database.Neo4j.Types
 import Data.Aeson
 import Data.Aeson.Types hiding (parse)
-import qualified Data.Map as Map
+import qualified Data.HashMap.Lazy as Map
 import qualified Data.Vector as V
 import Data.Attoparsec
 import Network.HTTP hiding (Done)
