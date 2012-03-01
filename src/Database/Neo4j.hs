@@ -21,7 +21,7 @@ module Database.Neo4j (
     -- * Connecting to Neo4j
     Client, mkClient, defaultClient, defaultPort,
     -- * Working with Nodes
-    Node(), createNode, nodeProperties, getNodeID, getNode, getNodes,
+    Node(), createNode, nodeProperties, nodeURI, getNodeID, getNode, getNodes,
     lookupNode, deleteNode,
     -- * Working with Relationships
     Relationship(), relationshipFrom, relationshipTo, relationshipType,
