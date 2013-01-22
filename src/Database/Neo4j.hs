@@ -68,7 +68,6 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy.Char8 as BLC
-import Data.ByteString.Class
 import Data.Either.Unwrap
 import Control.Applicative
 import Debug.Trace
@@ -95,7 +94,7 @@ createNodeIndex client indexName = do
 
 -- | If a node has a specific property, add the property to the given index.
 indexNodeByProperty :: Client -> IndexName -> Text -> Node -> IO (Either String ())
-indexNodeByProperty client indexName propertyName node@(Node nodeURI properties) = 
+indexNodeByProperty client indexName propertyName node@(Node nodeURI properties) =
     case lookup propertyName properties of
         Just propertyValue -> indexNode client indexName node propertyName
                                 propertyValue
@@ -166,7 +165,7 @@ findNodes client indexName key value = do
                     (2, 0, 0) -> let body = rspBody response in
                         case Attoparsec.parse json body of
                             Attoparsec.Done _ (Array v) -> Right $
-                                forM (V.toList v) $ \n -> 
+                                forM (V.toList v) $ \n ->
                                     case n of
                                         Object o -> extractNode o
                                         _ -> Nothing

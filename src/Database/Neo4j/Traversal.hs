@@ -15,7 +15,6 @@ import Data.Attoparsec
 import Network.HTTP hiding (Done)
 import Network.URI
 import Data.String
-import Data.ByteString.Class
 import Data.List
 import Data.Maybe
 import Data.Function
@@ -58,7 +57,7 @@ instance ToJSON TraverseRelationship where
     toJSON (TraverseOutgoing rType) =
         buildTraversalRelationshipObj "out" rType
 
-buildTraversalRelationshipObj dir rType = 
+buildTraversalRelationshipObj dir rType =
     object [fromString "direction" .= dir, fromString "type" .= rType]
 
 data TraversalUniqueness = NodeGlobalUniqueness | RelationshipGlobalUniqueness | NodePathUniqueness | RelationshipPathUniqueness | NoUniqueness deriving (Eq)
@@ -146,7 +145,7 @@ parsePathJSON (Object o) = do
             map (resolve' nodes) relationshipObjects
         resolve' nodes obj = Relationship self startNode endNode name props
             where
-                Just (self, start, end, name, props) = 
+                Just (self, start, end, name, props) =
                     relationshipAttributesFromParsedResponse obj
                 startNode = fromJust' $ Map.lookup (show start) nodeMap
                 endNode = fromJust' $ Map.lookup (show end) nodeMap
