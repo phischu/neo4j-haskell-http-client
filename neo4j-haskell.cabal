@@ -3,65 +3,29 @@
 -- http://www.haskell.org/cabal/release/cabal-latest/doc/users-guide/authors.html#pkg-descr.
 -- The name of the package.
 Name:                neo4j-haskell
-
--- The package version. See the Haskell package versioning policy
--- (http://www.haskell.org/haskellwiki/Package_versioning_policy) for
--- standards guiding when and how versions should be incremented.
-Version:             0.4.1
-
--- A short (one-line) description of the package.
+Version:             0.4.2
 Synopsis:            HTTP bindings for Neo4j
-
--- A longer description of the package.
--- Description:         
-
--- URL for the project homepage or repository.
 Homepage:            http://github.com/ThoughtLeadr/neo4j-haskell-http-client
-
--- The license under which the package is released.
 License:             BSD3
-
--- The file containing the license text.
 License-file:        LICENSE
-
--- The package author(s).
 Author:              Ryan Burton
-
--- An email address to which users can send suggestions, bug reports,
--- and patches.
 Maintainer:          ryan@thoughtleadr.com
-
--- A copyright notice.
--- Copyright:           
-
 Category:            Database
-
 Build-type:          Simple
 
--- Extra files to be distributed with the package, such as examples or
--- a README.
--- Extra-source-files:  
-
--- Constraint on the version of Cabal needed to build this package.
 Cabal-version:       >=1.2
 
 
 Library
   hs-source-dirs: src
-  
-  -- Modules exported by the library.
+
   Exposed-modules: Database.Neo4j
-  
-  -- Packages needed in order to build this package.
+
   Build-depends: base, unordered-containers, bytestring, HTTP, network, split,
-                 either-unwrap, EitherT, bytestring-class, attoparsec,
-                 aeson >= 0.4, text, vector
-  
-  -- Modules not exported by this package.
+                 either-unwrap, EitherT, attoparsec, aeson >= 0.4, text,
+                 vector
+
   Other-modules: Database.Neo4j.Internal, Database.Neo4j.Types,
                  Database.Neo4j.Node, Database.Neo4j.Relationship,
                  Database.Neo4j.Traversal
-  
-  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
-  -- Build-tools:         
-  
+

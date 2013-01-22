@@ -9,7 +9,6 @@ import Database.Neo4j.Internal
 import Network.HTTP
 import Network.URI
 import Data.Aeson
-import Data.ByteString.Class
 import Text.Printf
 import qualified Data.Attoparsec as Attoparsec
 import Control.Monad
@@ -110,7 +109,7 @@ getRelationships client rrType (Node nodeURI _) = do
             Right response -> case rspCode response of
                 (2, 0, 0) -> let body = rspBody response in
                     case Attoparsec.parse json body of
-                        Attoparsec.Done _ (Array v) -> Right $ mapM 
+                        Attoparsec.Done _ (Array v) -> Right $ mapM
                             (relationshipAttributesFromParsedResponse)
                                 (V.toList v)
                         _ -> Left ("Couldn't parse response " ++

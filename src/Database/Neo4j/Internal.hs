@@ -13,8 +13,12 @@ import Network.HTTP
 import Network.HTTP.Base
 import Network.URI
 import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy as BL
 import Debug.Trace
 import Data.List.Split (splitOn)
+
+toStrictByteString :: BL.ByteString -> BSC.ByteString
+toStrictByteString = BSC.concat . BL.toChunks
 
 traceShow' x = traceShow x x
 

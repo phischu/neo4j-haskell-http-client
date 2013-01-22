@@ -10,7 +10,6 @@ import Data.Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Attoparsec as Attoparsec
 import Data.Text (Text)
-import Data.ByteString.Class
 import qualified Data.Vector as V
 import Control.Monad
 import Data.List.Split (splitOn)
@@ -44,7 +43,7 @@ getNode client uri = clientGuard client [uri] $ do
 
 -- | Retrieve a node from its ID number in Neo4j
 lookupNode :: Client -> NodeID -> IO (Either String Node)
-lookupNode client nodeID = 
+lookupNode client nodeID =
     getNode client $
         serviceRootURI client `appendToPath` "node"
             `appendToPath` (show nodeID)
@@ -71,7 +70,7 @@ getNodes client uris = clientGuard client uris $ do
                             Success nodes -> Right nodes
                     Attoparsec.Fail _ contexts err ->
                         Left (show (contexts, err))
-                _         -> Left (show result)                
+                _         -> Left (show result)
     where
         mkBatchGETRequest urisWithIDs = buildRequestWithContent POST batchURI
                                             content
