@@ -27,7 +27,7 @@ escape = escapeURIString isUnreserved
 appendToPath uri appendage = uri { uriPath = uriPath uri ++ appendage' }
     where appendage' = case appendage of
                         [] -> []
-                        ('/':_) -> escape appendage
+                        ('/':rest) -> '/':escape rest
                         _ -> '/':(escape appendage)
 
 buildRequestWithContent method uri content =

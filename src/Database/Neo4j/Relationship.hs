@@ -98,12 +98,11 @@ mkRelationshipFromAttributes client (self, start, end, name, props) = do
 -- | Get all the relationships of a given type for a node.
 getRelationships :: Client -> RelationshipRetrievalType -> Node -> IO (Either String [Relationship])
 getRelationships client rrType (Node nodeURI _) = do
-    let uri = nodeURI `appendToPath` "relationships" `appendToPath`
-            case rrType of
-                RetrieveAll ->  "all"
-                RetrieveIncoming -> "in"
-                RetrieveOutgoing -> "out"
-                RetrieveTyped relType -> "all/" ++ relType
+    let uri = case rrType of
+                RetrieveAll -> nodeURI `appendToPath` "relationships" `appendToPath` "all"
+                RetrieveIncoming -> nodeURI `appendToPath` "relationships" `appendToPath` "in"
+                RetrieveOutgoing -> nodeURI `appendToPath` "relationships" `appendToPath` "out"
+                RetrieveTyped relType -> nodeURI `appendToPath` "relationships" `appendToPath` "all" `appendToPath` relType
     result <- simpleHTTP $ mkRequest GET uri
     let relationshipResult = case result of
             Right response -> case rspCode response of
